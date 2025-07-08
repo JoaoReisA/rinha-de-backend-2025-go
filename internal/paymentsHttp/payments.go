@@ -1,34 +1,44 @@
 package paymentsHttp
 
 import (
+	"encoding/json"
+
+	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/background"
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/config"
-	"github.com/gofiber/fiber/v3"
-	"github.com/gofiber/fiber/v3/client"
+	"github.com/gofiber/fiber/v2"
 )
 
 func Handler(app *fiber.App) {
 
-	app.Get("/", func(c fiber.Ctx) error {
-		cc := client.New()
+	app.Get("/", GetHealthChecks)
 
-		resp, err := cc.Get(config.PaymentProcessorUrlDefault + "/payments/service-health")
-		if err != nil {
-			panic(err)
-		}
-		return c.SendString(resp.String())
-	})
-
-	app.Post("/payments", func(c fiber.Ctx) error {
+	app.Post("/payments", func(c *fiber.Ctx) error {
 		return c.SendString("Hello, World 👋!")
 	})
 }
 
-func PostPayment(c *fiber.Ctx) {
-	cc := client.New()
+func GetHealthChecks(c *fiber.Ctx) (err error) {
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status":        background.HealthCache.Status,
+		"bestProcessor": background.HealthCache.BestPaymentProcessorUrl,
+	})
+}
 
-	resp, err := cc.Post(config.PaymentProcessorUrlDefault, client.Config{})
-	if err != nil {
-		panic(err)
+func PostPayment(c *fiber.Ctx) (err error) {
+
+	agent := fiber.Post(config.PaymentProcessorUrlDefault)
+	statusCode, body, errs := agent.Bytes()
+	if errs != nil {
+		panic(errs)
 	}
-	print(resp)
+	var something fiber.Map
+	err = json.Unmarshal(body, &something)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"err": err,
+		})
+	}
+
+	return c.Status(statusCode).JSON(something)
+
 }
