@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/shopspring/decimal"
 )
 
 type HealthStatusCache struct {
@@ -28,14 +27,24 @@ type HealthStatusPayload struct {
 }
 
 type PaymentRequest struct {
-	CorrelationId string          `json:"correlationId" xml:"correlationId" form:"correlationId"`
-	Amount        decimal.Decimal `json:"amount" xml:"amount" form:"amount"`
-	RequestedAt   string          `json:"requestedAt" xml:"requestedAt" form:"requestedAt"`
+	CorrelationId string  `json:"correlationId" xml:"correlationId" form:"correlationId"`
+	Amount        float64 `json:"amount" xml:"amount" form:"amount"`
+	RequestedAt   string  `json:"requestedAt" xml:"requestedAt" form:"requestedAt"`
 }
 
 type ProcessedPayment struct {
-	CorrelationID    string          `json:"correlationId"`
-	Amount           decimal.Decimal `json:"amount"`
-	PaymentProcessor string          `json:"paymentProcessor"`
-	RequestedAt      string          `json:"requestedAt"`
+	CorrelationID    string  `json:"correlationId"`
+	Amount           float64 `json:"amount"`
+	PaymentProcessor string  `json:"paymentProcessor"`
+	RequestedAt      string  `json:"requestedAt"`
+}
+
+type PaymentsSummary struct {
+	TotalRequests int     `json:"totalRequests"`
+	TotalAmount   float64 `json:"totalAmount"`
+}
+
+type PaymentsSummaryResponse struct {
+	Default  PaymentsSummary `json:"default"`
+	Fallback PaymentsSummary `json:"fallback"`
 }

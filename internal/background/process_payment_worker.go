@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/config"
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/database"
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/types"
 	"github.com/gofiber/fiber/v2"
@@ -35,10 +36,11 @@ func ProccessPayments(paymentRequest types.PaymentRequest) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to marshal payment data: %w", err)
 	}
-	err = database.RedisClient.HSet(database.RedisCtx, "payments", processedPayment.CorrelationID, paymentData).Err()
+	err = database.RedisClient.HSet(database.RedisCtx, config.RedisPaymentsKey, processedPayment.CorrelationID, paymentData).Err()
 	if err != nil {
 		return fmt.Errorf("failed to save payment in redis: %w", err)
 	}
+	log.Println("PAYMENT SAVED ON REDIS")
 	//TODO: CALL WORKER TO INSERT In BATCH ON POSTGRES
 
 	return nil
