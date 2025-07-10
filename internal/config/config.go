@@ -6,6 +6,7 @@ var DatabaseURL string
 var CacheURL string
 var PaymentProcessorUrlDefault string
 var PaymentProcessorUrlFallback string
+var RedisQueueKey = "payments_pending"
 
 func init() {
 	DatabaseURL = os.Getenv("DB_CONNECTION_STRING")

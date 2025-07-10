@@ -60,8 +60,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.4"
-          memory: "100MB"
+          cpus: "0.1"
+          memory: "50MB"
 
   redis:
     image: redis:7-alpine
@@ -71,8 +71,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.1"
-          memory: "30MB"
+          cpus: "0.4"
+          memory: "80MB"
 
 networks:
   backend:

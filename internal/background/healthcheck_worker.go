@@ -7,25 +7,15 @@ import (
 	"time"
 
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/config"
+	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/types"
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/utils"
 	"github.com/gofiber/fiber/v2"
 )
 
-type healthStatusCache struct {
-	mu                      sync.RWMutex
-	Status                  fiber.Map
-	BestPaymentProcessorUrl string
-	err                     error
-}
-type healthResult struct {
-	response fiber.Map
-	err      error
-}
-
-var HealthCache = healthStatusCache{
+var HealthCache = types.HealthStatusCache{
 	Status:                  make(fiber.Map),
 	BestPaymentProcessorUrl: config.PaymentProcessorUrlDefault,
-	err:                     nil,
+	Err:                     nil,
 }
 
 func RunHealthCheckWorker() {
@@ -39,53 +29,48 @@ func RunHealthCheckWorker() {
 		newStatus, err := fetchAndProcessHealthChecks()
 		if err != nil {
 			log.Printf("Worker: Error fetching health checks: %v", err)
-			HealthCache.err = err
+			HealthCache.Err = err
 			continue // Skip this update and wait for the next tick
 		}
 
 		// Safely write the new status to the global cache
-		HealthCache.mu.Lock()
+		HealthCache.Mu.Lock()
 		HealthCache.Status = newStatus
-		HealthCache.BestPaymentProcessorUrl, HealthCache.err = decideBestProcessor(newStatus)
-		HealthCache.mu.Unlock()
+		HealthCache.BestPaymentProcessorUrl, HealthCache.Err = decideBestProcessor(newStatus)
+		HealthCache.Mu.Unlock()
 
 		log.Println("Worker: Health status cache updated successfully.")
 	}
 }
 
-func decideBestProcessor(m fiber.Map) (s string, err error) {
-	defaultProcessorData, ok := m["default"].(fiber.Map)
-	if !ok {
-		log.Println("Error: 'default' health status is not in the expected format.")
-		return
+func decideBestProcessor(m fiber.Map) (string, error) {
+	var payload types.HealthStatusPayload
+
+	jsonBytes, err := json.Marshal(m)
+	if err != nil {
+		log.Printf("Error converting health status map to JSON: %v", err)
+		return config.PaymentProcessorUrlDefault, err
 	}
 
-	isDefaultFailing, ok := defaultProcessorData["failing"].(bool)
-	if ok && isDefaultFailing {
-		log.Println("Default processor is failing!")
-		return config.PaymentProcessorUrlFallback, nil
-	}
-	fallbackProcessorData, ok := m["fallback"].(fiber.Map)
-	if !ok {
-		log.Println("Error: 'default' health status is not in the expected format.")
-		return
-	}
-	isFallbackFailing, ok := fallbackProcessorData["failing"].(bool)
-	if ok && isFallbackFailing {
-		return config.PaymentProcessorUrlDefault, nil
+	if err := json.Unmarshal(jsonBytes, &payload); err != nil {
+		log.Printf("Error parsing health status structure: %v", err)
+		return config.PaymentProcessorUrlDefault, err
 	}
 
-	if isDefaultFailing && isFallbackFailing {
+	if payload.Default.IsFailing && payload.Fallback.IsFailing {
+		log.Println("CRITICAL: Both default and fallback payment processors are failing.")
 		return config.PaymentProcessorUrlDefault, utils.ErrAllPaymentsFailing
 	}
 
+	if payload.Default.IsFailing || payload.Default.MinResponseTime > payload.Fallback.MinResponseTime+50 {
+		return config.PaymentProcessorUrlFallback, nil
+	}
 	return config.PaymentProcessorUrlDefault, nil
 }
-
 func fetchAndProcessHealthChecks() (fiber.Map, error) {
 	var wg sync.WaitGroup
-	defaultChan := make(chan healthResult, 1)
-	fallbackChan := make(chan healthResult, 1)
+	defaultChan := make(chan types.HealthResult, 1)
+	fallbackChan := make(chan types.HealthResult, 1)
 
 	wg.Add(2)
 	go fetchHealth(config.PaymentProcessorUrlDefault+"/payments/service-health", &wg, defaultChan)
@@ -98,33 +83,33 @@ func fetchAndProcessHealthChecks() (fiber.Map, error) {
 	defaultResult := <-defaultChan
 	fallbackResult := <-fallbackChan
 
-	if defaultResult.err != nil {
-		return nil, defaultResult.err
+	if defaultResult.Err != nil {
+		return nil, defaultResult.Err
 	}
-	if fallbackResult.err != nil {
-		return nil, fallbackResult.err
+	if fallbackResult.Err != nil {
+		return nil, fallbackResult.Err
 	}
 
 	response := fiber.Map{
-		"default":          defaultResult.response,
-		"fallback":         fallbackResult.response,
+		"default":          defaultResult.Response,
+		"fallback":         fallbackResult.Response,
 		"last_checked_utc": time.Now().UTC(),
 	}
 
 	return response, nil
 }
-func fetchHealth(url string, wg *sync.WaitGroup, ch chan<- healthResult) {
+func fetchHealth(url string, wg *sync.WaitGroup, ch chan<- types.HealthResult) {
 	defer wg.Done()
 	agent := fiber.Get(url)
 	_, body, errs := agent.Bytes()
 	if len(errs) > 0 {
-		ch <- healthResult{err: errs[0]}
+		ch <- types.HealthResult{Err: errs[0]}
 		return
 	}
 	var res fiber.Map
 	if err := json.Unmarshal(body, &res); err != nil {
-		ch <- healthResult{err: err}
+		ch <- types.HealthResult{Err: err}
 		return
 	}
-	ch <- healthResult{response: res}
+	ch <- types.HealthResult{Response: res}
 }
