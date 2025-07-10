@@ -20,7 +20,7 @@ type HealthResult struct {
 
 type ProcessorHealth struct {
 	IsFailing       bool    `json:"failing"`
-	MinResponseTime float64 `json:"min_response_time"` // Included as requested
+	MinResponseTime float64 `json:"min_response_time"`
 }
 type HealthStatusPayload struct {
 	Default  ProcessorHealth `json:"default"`
