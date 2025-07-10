@@ -45,7 +45,5 @@ func ProccessPayments(paymentRequest types.PaymentRequest) (err error) {
 		return fmt.Errorf("failed to save payment in redis: %w", err)
 	}
 	log.Println("PAYMENT SAVED ON REDIS")
-	//TODO: CALL WORKER TO INSERT In BATCH ON POSTGRES
-
 	return nil
 }

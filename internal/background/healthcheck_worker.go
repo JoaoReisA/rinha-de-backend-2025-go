@@ -30,10 +30,9 @@ func RunHealthCheckWorker() {
 		if err != nil {
 			log.Printf("Worker: Error fetching health checks: %v", err)
 			HealthCache.Err = err
-			continue // Skip this update and wait for the next tick
+			continue
 		}
 
-		// Safely write the new status to the global cache
 		HealthCache.Mu.Lock()
 		HealthCache.Status = newStatus
 		HealthCache.BestPaymentProcessorUrl, HealthCache.Err = decideBestProcessor(newStatus)

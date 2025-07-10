@@ -31,7 +31,6 @@ services:
       - PAYMENT_PROCESSOR_URL_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_URL_FALLBACK=http://payment-processor-fallback:8080
     depends_on:
-      # - db
       - redis
     deploy:
       resources:
@@ -42,27 +41,7 @@ services:
   api-2:
     <<: *api
     hostname: api-2
-
-  # db:
-  #   image: postgres:16-alpine
-  #   container_name: postgres-db
-  #   ports:
-  #     - "5432:5432"
-  #   environment:
-  #     - POSTGRES_USER=rinha
-  #     - POSTGRES_PASSWORD=rinha
-  #     - POSTGRES_DB=rinha_db
-  #   networks:
-  #     - backend
-  #   volumes:
-  #     - ./sql/ddl.sql:/docker-entrypoint-initdb.d/ddl.sql
-  #     - postgres_data:/var/lib/postgresql/data
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.1"
-  #         memory: "25MB"
-
+    
   redis:
     image: redis:7-alpine
     container_name: redis-cache
