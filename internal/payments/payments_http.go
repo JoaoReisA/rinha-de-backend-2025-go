@@ -11,6 +11,7 @@ import (
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/types"
 	"github.com/araddon/dateparse"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 )
 
 func Router(app *fiber.App) {
@@ -36,7 +37,10 @@ func PostPayment(c *fiber.Ctx) (err error) {
 	if err := c.BodyParser(paymentRequest); err != nil {
 		return c.SendStatus(fiber.StatusBadRequest)
 	}
-
+	err = uuid.Validate(paymentRequest.CorrelationId)
+	if err != nil {
+		return c.SendStatus(fiber.StatusBadRequest)
+	}
 	currentTime := time.Now().UTC()
 	formattedString := currentTime.Format(time.RFC3339Nano)
 	paymentRequest.RequestedAt = formattedString
