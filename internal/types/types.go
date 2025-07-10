@@ -1,6 +1,7 @@
 package types
 
 import (
+	"math"
 	"sync"
 
 	"github.com/gofiber/fiber/v2"
@@ -47,4 +48,8 @@ type PaymentsSummary struct {
 type PaymentsSummaryResponse struct {
 	Default  PaymentsSummary `json:"default"`
 	Fallback PaymentsSummary `json:"fallback"`
+}
+
+func RoundFloat(val float64) float64 {
+	return math.Round(float64(val)*10) / 10
 }

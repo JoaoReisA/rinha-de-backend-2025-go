@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/config"
@@ -20,12 +19,7 @@ func StartWorker() {
 	}
 	processingQueue := "payments_processing:" + workerID
 
-	concurrency := 10
-	if val := os.Getenv("WORKER_CONCURRENCY"); val != "" {
-		if n, err := strconv.Atoi(val); err == nil && n > 0 {
-			concurrency = n
-		}
-	}
+	concurrency := 16
 
 	for i := 0; i < concurrency; i++ {
 		go func(workerNum int) {

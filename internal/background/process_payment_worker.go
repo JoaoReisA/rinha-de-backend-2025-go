@@ -8,6 +8,7 @@ import (
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/config"
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/database"
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/types"
+	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/utils"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -20,10 +21,13 @@ func ProccessPayments(paymentRequest types.PaymentRequest) (err error) {
 	agent := fiber.Post(paymentProcessorUsed + "/payments")
 	agent.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
 	agent.Body(requestBody)
-	_, _, errs := agent.Bytes()
+	statusCode, _, errs := agent.Bytes()
 	if errs != nil {
 		log.Printf("Error calling payment processor: %v", errs)
 		return errs[0]
+	}
+	if statusCode < 200 || statusCode >= 300 {
+		return utils.ErrFailedToSendPaymentProcess
 	}
 	processedPayment := types.ProcessedPayment{
 		CorrelationID:    paymentRequest.CorrelationId,

@@ -113,12 +113,12 @@ func summarizePayments(paymentsData map[string]string, from, to time.Time) types
 	for _, paymentDataJson := range paymentsData {
 		var payment types.ProcessedPayment
 		if err := json.Unmarshal([]byte(paymentDataJson), &payment); err != nil {
-			continue // Skip if JSON is malformed
+			continue
 		}
 
 		requestedAt, err := time.Parse(time.RFC3339Nano, payment.RequestedAt)
 		if err != nil {
-			continue // Skip if date is malformed
+			continue
 		}
 
 		if isTimeRangeSet && (requestedAt.Before(from) || requestedAt.After(to)) {
@@ -138,11 +138,11 @@ func summarizePayments(paymentsData map[string]string, from, to time.Time) types
 	return types.PaymentsSummaryResponse{
 		Default: types.PaymentsSummary{
 			TotalRequests: defaultCount,
-			TotalAmount:   defaultSum,
+			TotalAmount:   types.RoundFloat(defaultSum),
 		},
 		Fallback: types.PaymentsSummary{
 			TotalRequests: fallbackCount,
-			TotalAmount:   fallbackSum,
+			TotalAmount:   types.RoundFloat(fallbackSum),
 		},
 	}
 }
