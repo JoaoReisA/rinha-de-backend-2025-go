@@ -26,7 +26,6 @@ services:
       - backend
       - payment-processor
     environment:
-      - DB_CONNECTION_STRING=postgres://postgres:postgres@db:5432/rinha_db?sslmode=disable
       - REDIS_ADDRESS=redis:6379
       - PAYMENT_PROCESSOR_URL_DEFAULT=http://payment-processor-default:8080
       - PAYMENT_PROCESSOR_URL_FALLBACK=http://payment-processor-fallback:8080
@@ -58,6 +57,3 @@ networks:
     driver: bridge
   payment-processor:
     external: true
-
-volumes:
-  postgres_data:
