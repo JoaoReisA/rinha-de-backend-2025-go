@@ -29,7 +29,7 @@ func StartWorker() {
 					if err.Error() != "redis: nil" {
 						fmt.Println("Error moving payment to processing queue:", err)
 					}
-					time.Sleep(1 * time.Second)
+					time.Sleep(100 * time.Millisecond)
 					continue
 				}
 
@@ -41,7 +41,7 @@ func StartWorker() {
 				}
 
 				if err := ProccessPayments(payment); err != nil {
-					fmt.Printf("[Worker %s-%d] Failed to process payment: %v\n", workerID, workerNum, err)
+					database.RedisClient.LPush(database.RedisCtx, "payments_pending", res)
 				} else {
 					fmt.Printf("[Worker %s-%d] Payment processed: %s\n", workerID, workerNum, payment.CorrelationId)
 				}
