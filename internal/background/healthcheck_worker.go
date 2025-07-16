@@ -1,12 +1,14 @@
 package background
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/config"
+	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/database"
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/types"
 	"github.com/JoaoReisA/rinha-de-backend-2025-go/internal/utils"
 	"github.com/gofiber/fiber/v2"
@@ -18,27 +20,61 @@ var HealthCache = types.HealthStatusCache{
 	Err:                     nil,
 }
 
-func RunHealthCheckWorker() {
-	log.Println("Health check worker started...")
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
+func StartWorkerHealthCheck() {
+	log.Println("Initializing background worker...")
+	const lockKey = "healthcheck-leader-lock"
+	const lockTTL = 60 * time.Second
 
-	for ; ; <-ticker.C {
-		log.Println("Worker: Running health checks...")
-
-		newStatus, err := fetchAndProcessHealthChecks()
+	for {
+		acquired, err := database.RedisClient.SetNX(context.Background(), lockKey, "active", lockTTL).Result()
 		if err != nil {
-			log.Printf("Worker: Error fetching health checks: %v", err)
-			HealthCache.Err = err
+			log.Printf("Error acquiring Redis lock: %v. Retrying in 15 seconds.", err)
+			time.Sleep(15 * time.Second)
 			continue
 		}
 
-		HealthCache.Mu.Lock()
-		HealthCache.Status = newStatus
-		HealthCache.BestPaymentProcessorUrl, HealthCache.Err = decideBestProcessor(newStatus)
-		HealthCache.Mu.Unlock()
+		if acquired {
+			log.Println("Worker: Acquired leader lock. Starting health checks.")
+			runHealthCheckAsLeader(lockKey, lockTTL)
+		} else {
+			log.Println("Worker: Could not acquire lock, another instance is leader. Waiting.")
+			time.Sleep(lockTTL / 2)
+		}
+	}
+}
 
-		log.Println("Worker: Health status cache updated successfully.")
+func runHealthCheckAsLeader(lockKey string, lockTTL time.Duration) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	renewTicker := time.NewTicker(lockTTL / 2)
+	defer renewTicker.Stop()
+
+	log.Println("Leader: Running health checks...")
+
+	for {
+		select {
+		case <-ticker.C:
+			log.Println("Leader: Performing health check...")
+			newStatus, err := fetchAndProcessHealthChecks()
+			if err != nil {
+				log.Printf("Leader: Error fetching health checks: %v", err)
+				HealthCache.Err = err
+				continue
+			}
+
+			HealthCache.Mu.Lock()
+			HealthCache.Status = newStatus
+			HealthCache.BestPaymentProcessorUrl, HealthCache.Err = decideBestProcessor(newStatus)
+			HealthCache.Mu.Unlock()
+		case <-renewTicker.C:
+			log.Println("Leader: Renewing lock...")
+			renewed, err := database.RedisClient.Expire(context.Background(), lockKey, lockTTL).Result()
+			if err != nil || !renewed {
+				log.Println("Leader: Failed to renew lock or lock expired. Relinquishing leadership.")
+				return
+			}
+		}
 	}
 }
 
@@ -100,10 +136,18 @@ func fetchAndProcessHealthChecks() (fiber.Map, error) {
 func fetchHealth(url string, wg *sync.WaitGroup, ch chan<- types.HealthResult) {
 	defer wg.Done()
 	agent := fiber.Get(url)
-	_, body, errs := agent.Bytes()
+	statusCode, body, errs := agent.Bytes()
 	if len(errs) > 0 {
+		log.Println("Error fetching HeathCheck", url, errs[0])
+
 		ch <- types.HealthResult{Err: errs[0]}
 		return
+	}
+	if statusCode == 429 {
+		log.Println("Error fetching HeathCheck", url, statusCode)
+	}
+	if statusCode > 300 {
+		log.Println("Error fetching HeathCheck", url, statusCode)
 	}
 	var res fiber.Map
 	if err := json.Unmarshal(body, &res); err != nil {

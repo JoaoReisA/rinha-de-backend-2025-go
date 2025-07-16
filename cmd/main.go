@@ -15,7 +15,7 @@ func main() {
 	app := fiber.New()
 	payments.Router(app)
 
-	go background.RunHealthCheckWorker()
+	go background.StartWorkerHealthCheck()
 	background.StartWorker()
 
 	log.Fatal(app.Listen(":8080"))
